@@ -1,6 +1,17 @@
-def main():
-    print("Hello from server!")
+from fastapi import FastAPI
+
+app = FastAPI(
+    title="Nexhacks API",
+    description="Backend API for Nexhacks",
+    version="0.1.0",
+)
 
 
-if __name__ == "__main__":
-    main()
+@app.get("/")
+async def root():
+    return {"message": "Hello from Nexhacks API!"}
+
+
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy"}
