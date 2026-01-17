@@ -17,9 +17,6 @@ class APIHandler:
         return {"status": "healthy"}
 
     @staticmethod
-    def create_market(payload: Any) -> Dict[str, Any]:
-        try:
-            m = Market.parse_obj(payload)
-        except ValidationError as e:
-            raise HTTPException(status_code=422, detail=e.errors())
-        return {"message": f"Market {m.market} created successfully"}
+    def create_market(market: Market) -> Dict[str, Any]:
+        
+        return {"message": f"Market {market.market_name} created successfully"}
