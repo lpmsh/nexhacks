@@ -8,16 +8,17 @@ app = FastAPI(
     version="0.1.0",
 )
 
+api_handler = APIHandler()
+
 @app.get("/")
 async def root():
-    return APIHandler.root()
-
+    return api_handler.root()
 
 @app.get("/health")
 async def health_check():
-    return APIHandler.health()
+    return api_handler.health()
 
 
 @app.post("/new/market")
 async def create_market(market: Market):
-    return APIHandler.create_market(market)
+    return api_handler.create_market(market)

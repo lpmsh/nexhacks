@@ -1,22 +1,42 @@
+import os
 from typing import Any, Dict
-from pydantic import ValidationError
+
 from fastapi import HTTPException
+from supabase import Client, create_client
+from dotenv import load_dotenv
 
 from schemas.market import Market
 
 
 class APIHandler:
-    """Central handler that validates payloads and performs endpoint logic."""
+    def __init__(self) -> None:
+        load_dotenv()
+        url: str = os.getenv("SUPABASE_URL", "")
+        key: str = os.getenv("SUPABASE_SECRET_KEY", "")
+        
+        if url == "" or key == "":
+            raise HTTPException(
+                status_code=500,
+                detail="Supabase configuration missing (SUPABASE_URL / SUPABASE_SECRET_KEY).",
+            )
 
-    @staticmethod
-    def root() -> Dict[str, Any]:
-        return {"message": "Hello from Nexhacks API!"}
-
-    @staticmethod
-    def health() -> Dict[str, Any]:
+        self.supabase: Client = create_client(url, key)
+    
+    def root(self) -> Dict[str, str]:
+        return {"message": "Welcome to the Nexhacks API!"}
+    
+    def health(self) -> Dict[str, str]:
         return {"status": "healthy"}
 
-    @staticmethod
-    def create_market(market: Market) -> Dict[str, Any]:
-        
-        return {"message": f"Market {market.market_name} created successfully"}
+    def create_market(self, market: Market) -> Dict[str, Any]:
+        try:
+            resp = (self.supabase.table("markets")
+                    .insert({"market": market.market_name})
+                    .execute()
+            )
+        except Exception as exc:
+            raise HTTPException(
+                status_code=502, detail=f"Supabase request failed: {str(exc)}"
+            )
+
+        return {"data": resp.data}
