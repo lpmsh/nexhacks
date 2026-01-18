@@ -31,6 +31,15 @@ class LongBenchToggleSettings(BaseModel):
     keep_last_n: int = 1
     bm25_k1: float = 1.5
     bm25_b: float = 0.75
+    task_mode: str = Field(
+        "task_aware",
+        description="task_aware|task_agnostic|hybrid",
+    )
+    agnostic_weight: float = Field(0.35, ge=0.0, le=1.0)
+    agnostic_doc_sim_weight: float = 0.5
+    agnostic_idf_weight: float = 0.3
+    agnostic_diversity_weight: float = 0.2
+    agnostic_min_score: float = 0.05
     question_weight: float = 0.45
     option_weight: float = 1.0
     contrast_weight: float = 0.7

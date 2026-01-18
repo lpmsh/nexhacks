@@ -1,0 +1,6 @@
+ratio,baseline_acc,baseline_prompt_tokens,baseline_latency_s,compressed_acc,compressed_prompt_tokens,compressed_latency_s,compressed_savings_pct,bear_acc,bear_prompt_tokens,bear_latency_s,bear_savings_pct
+0.3,0.6,249359,1.7531,0.4,103256,0.9923,57.09,0.6,185989,2.0589,24.75
+0.4,0.6,249359,1.7531,0.4,110445,0.6962,54.07,0.6,172303,0.8985,30.16
+0.5,0.6,249359,1.7531,0.4,121217,1.2204,49.16,0.6,157465,1.8321,36.03
+0.6,0.6,249359,1.7531,0.6,140516,1.7238,40.07,0.6,140423,2.2896,42.86
+0.7,0.6,249359,1.7531,0.6,164929,1.7427,30.05,0.6,120687,1.602,50.82
