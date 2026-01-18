@@ -19,6 +19,9 @@ from schemas.compress import (
     LongBenchCompressionResponse,
 )
 
+from fastapi import FastAPI
+from components.api_handler import APIHandler
+
 app = FastAPI(
     title="COSMOS Compression API",
     description="Facility-location compressor with baselines and a live demo",

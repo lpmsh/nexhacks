@@ -1,5 +1,5 @@
 run-dev:
-	uvicorn main:app --reload
+	uv run uvicorn main:app --reload
 
 test:
-	pytest tests/
+	uv run pytest tests/
