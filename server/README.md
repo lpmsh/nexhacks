@@ -1,8 +1,23 @@
-Backend for COSMOS. Run locally with:
+# Irreduce server
 
+FastAPI backend for Irreduce (COSMOS compression engine). Serves the API and mounts the demo UI at `/app`.
+
+## Run locally
 ```bash
-source .venv/bin/activate  # arm64 Python 3.11
-python -m uvicorn main:app --reload
+cd server
+uv sync
+uv run uvicorn main:app --reload
 ```
+Open http://127.0.0.1:8000/app.
 
-The demo UI lives at `/app`. API docs at `/docs`.
+## Endpoints
+- `/health` - liveness
+- `/compress` - main compression API
+- `/compress/longbench` - LongBench-style compression
+- `/compare` - compare against TokenCo
+- `/evaluate` - quick eval runner
+- `/examples` - demo scenarios
+- `/docs` - OpenAPI docs
+
+## Configuration and credits
+See `../README.md` for environment variables, evaluation commands, and external tool credits.
