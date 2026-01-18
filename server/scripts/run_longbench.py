@@ -3,7 +3,7 @@ import json
 import os
 import time
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 import requests
 
@@ -15,6 +15,12 @@ from cosmos.longbench_eval import (
     write_jsonl,
 )
 from cosmos.token_client import TokenCoClient
+from tokenc import TokenClient
+
+# small_compress compressor (see server/small_compress/*)
+from small_compress.custom_compressor import CustomCompressor
+from small_compress.vector_store import VectorStore
+from small_compress.logger import Logger
 
 
 def load_env_file(env_path: Path) -> None:
@@ -246,6 +252,10 @@ def main() -> None:
     parser.add_argument("--eval", action="store_true")
     parser.add_argument("--cot", action="store_true")
     parser.add_argument("--bear", action="store_true")
+    parser.add_argument("--custom", action="store_true", help="Use local CustomCompressor (small_compress)")
+    parser.add_argument("--custom-aggressiveness", type=float, default=0.4)
+    parser.add_argument("--custom-similarity-cutoff", type=float, default=0.1)
+    parser.add_argument("--custom-chunk-size", type=int, default=3)
     parser.add_argument("--bear-aggressiveness", type=float, default=0.4)
     parser.add_argument("--bear-model", default=os.getenv("TOKENC_MODEL", "bear-1"))
     parser.add_argument("--bear-max-output-tokens", type=int, default=None)
@@ -315,6 +325,52 @@ def main() -> None:
         bear_savings = summarize_savings(bear_samples)
         with open(os.path.join(args.out_dir, "bear_compression_summary.json"), "w", encoding="utf-8") as handle:
             json.dump(bear_savings, handle, ensure_ascii=True, indent=2)
+
+    if args.custom:
+        tokenc_key = os.getenv("TOKEN_COMPANY_API_KEY")
+        if not tokenc_key:
+            raise SystemExit("Missing TOKEN_COMPANY_API_KEY for custom compressor")
+        # create clients and helpers similar to analyzer.py
+        tc = TokenClient(api_key=tokenc_key)
+        logger = Logger()
+        vector_store = VectorStore(logger=logger)
+        custom_comp = CustomCompressor(
+            tokenc_client=tc,
+            vector_store=vector_store,
+            logger=logger,
+            similarity_cutoff=args.custom_similarity_cutoff,
+            chunk_size=args.custom_chunk_size,
+        )
+
+        custom_samples: List[Dict] = []
+        for sample in samples:
+            start = time.perf_counter()
+            # use question+choices as context signal for the vector filter
+            question_context = sample.get("question", "") + " " + " ".join(sample.get("choices", []))
+            compressed = custom_comp.compress(text=sample["context"], context=question_context, aggressiveness=args.custom_aggressiveness)
+            duration = time.perf_counter() - start
+            compressed_text = getattr(compressed, "output", "")
+            metrics = getattr(compressed, "metrics", {}) or {}
+            compression_time = getattr(compressed, "compression_time", None)
+            if compression_time is None:
+                compression_time = round(duration, 4)
+            custom_samples.append(
+                {
+                    **sample,
+                    "compressed_context": compressed_text,
+                    "metrics": metrics,
+                    "custom": {
+                        "compression_time_s": compression_time,
+                    },
+                    "compression_latency_s": round(duration, 4),
+                }
+            )
+
+        custom_prompts = runner.build_compressed_prompts(custom_samples)
+        write_jsonl(os.path.join(args.out_dir, "custom_prompts.jsonl"), custom_prompts)
+        custom_savings = summarize_savings(custom_samples)
+        with open(os.path.join(args.out_dir, "custom_compression_summary.json"), "w", encoding="utf-8") as handle:
+            json.dump(custom_savings, handle, ensure_ascii=True, indent=2)
 
     if not args.eval:
         return
@@ -389,6 +445,29 @@ def main() -> None:
                 encoding="utf-8",
             ) as handle:
                 json.dump(bear_eval, handle, ensure_ascii=True, indent=2)
+        if args.custom:
+            # evaluate custom prompts if present
+            custom_eval = evaluate_with_model(
+                custom_prompts,
+                base_url=args.base_url,
+                api_key=args.api_key,
+                model=args.model,
+                temperature=args.temperature,
+                max_tokens=args.max_tokens,
+                timeout=args.timeout,
+                max_retries=args.max_retries,
+                cot=args.cot,
+                token_counter=token_counter,
+                price_in=args.price_in,
+                price_out=args.price_out,
+                price_unit=args.price_unit,
+            )
+            with open(
+                os.path.join(args.out_dir, f"custom_eval_run{run_idx + 1}.json"),
+                "w",
+                encoding="utf-8",
+            ) as handle:
+                json.dump(custom_eval, handle, ensure_ascii=True, indent=2)
 
 
 if __name__ == "__main__":
