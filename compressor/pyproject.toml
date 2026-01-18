@@ -1,0 +1,14 @@
+[project]
+name = "compressor"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "chromadb>=1.4.1",
+    "dotenv>=0.9.9",
+    "openai>=2.15.0",
+    "pytest>=9.0.2",
+    "sentence-transformers>=5.2.0",
+    "tokenc>=0.1.2",
+]

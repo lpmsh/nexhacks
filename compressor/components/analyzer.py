@@ -1,49 +1,62 @@
-from tokenc import TokenClient
+from tokenc import TokenClient, CompressResponse
 from dotenv import load_dotenv
 import os
 from openai import OpenAI
 import time
 import json
 from pathlib import Path
+from custom_compressor import CustomCompressor
+from vector_store import VectorStore
+from logger import Logger
 
 load_dotenv()
 
 class CompressionAnalyzer:
-    def __init__(self, tokenc_client: TokenClient, openai_client: OpenAI):
-        self.token_client = tokenc_client
+    def __init__(self, openai_client: OpenAI, custom_compressor: CustomCompressor, logger: Logger | None = None):
         self.openai_client = openai_client
-
-    def analyze_compression(self, prompt: str, context: list[str], aggressiveness: float, log_dir: str = "logs"):
         
+        # injected logger (defaults to a new Logger for backward compatibility)
+        self.logger = logger or Logger()
+
+        self.custom_compressor = custom_compressor
+        
+        self.epochs = 10
+        
+        self.log_dir = "logs"
+
+    def analyze_compression(self, prompt: str, texts: list[str], context: str, aggressiveness: float):
         compressed_contexts = []
         compression_times = []
-        for ctx in context:
-            compressed = self.token_client.compress_input(
-                input=ctx, aggressiveness=aggressiveness
-            )
+        for text in texts:
+            compressed = self.custom_compressor.compress(text=text, context=context, aggressiveness=aggressiveness)
+            
             compressed_contexts.append(compressed.output)
             compression_times.append(compressed.compression_time)
 
         # Prepare prompts
-        original_prompt = prompt + "\n\n" + "\n".join(context)
-        compressed_prompt = prompt + "\n\n" + "\n".join(compressed_contexts)
+        original_prompt = prompt + "\n" + "\n".join(context)
+        compressed_prompt = prompt + "\n" + "\n".join(compressed_contexts)
 
-        # Call OpenAI client with original and compressed prompts
-        def call_openai(prompt) -> str:
-            try:
-                response = self.openai_client.responses.create(
-                    model="gpt-5-mini",
-                    input=prompt,
-                )
-                return response.output_text
-            except Exception as e:
-                return f"Error: {str(e)}"
+        original_response = self.call_openai(original_prompt)
+        compressed_response = self.call_openai(compressed_prompt)
+        
+        self.log_res(original_prompt, compressed_prompt, original_response, compressed_response, compression_times)
+        
+        print(f"Custom compression completed in {sum(compression_times):.2f} seconds over {len(context)} contexts.")
+    
+    def call_openai(self, prompt) -> str:
+        try:
+            response = self.openai_client.responses.create(
+                model="gpt-5-mini",
+                input=prompt,
+            )
+            return response.output_text
+        except Exception as e:
+            return f"Error: {str(e)}"
 
-        original_response = call_openai(original_prompt)
-        compressed_response = call_openai(compressed_prompt)
-
-        # Log results to a file
-        log_path = Path(log_dir)
+    def log_res(self, original_prompt: str, compressed_prompt: str, original_response: str, compressed_response: str, compression_times: list[float]):
+        
+        log_path = Path(self.log_dir)
         log_path.mkdir(parents=True, exist_ok=True)
         log_file = log_path / f"compression_log_{int(time.time())}.json"
 
@@ -72,17 +85,31 @@ def main():
 
     tc = TokenClient(api_key=tokenc_key)
     oa = OpenAI(api_key=openai_key)
-    analyzer = CompressionAnalyzer(tokenc_client=tc, openai_client=oa)
+    logger = Logger()
+
+    vector_store = VectorStore(logger=logger)
+    custom_compressor = CustomCompressor(
+        tokenc_client=tc, 
+        vector_store=vector_store, 
+        logger=logger,
+        similarity_cutoff=0.1,
+        chunk_size=3,
+    )
+
+    analyzer = CompressionAnalyzer(openai_client=oa, custom_compressor=custom_compressor, logger=logger)
 
     prompt = "Summarize the following historical event:"
-    text = (
+    text = [(
         "The Black Death was a plague pandemic that occurred in Europe from 1346 to 1353. "
         "It was one of the most fatal pandemics in human history; as many as 50 million people perished, perhaps 50% of Europe's 14th-century population. "
         "The disease is caused by the bacterium Yersinia pestis and spread by fleas and through the air. The Black Death had far-reaching population, economic, and cultural impacts."
-    )
+        "Rohan Choudhury, Guanglei Zhu, Sihan Liu, Koichiro Niinuma, Kris Kitani, László Jeni"
+        "Robotics Institute, Carnegie Mellon University"
+    )]
+    context = "I only care about numbers and statistics related to the Black Death."
 
-    log_file = analyzer.analyze_compression(prompt=prompt, context=[text], aggressiveness=0.8)
-    print(f"Analysis complete. Results logged to: {log_file}")
+    analyzer.analyze_compression(prompt=prompt, context=context, texts=text, aggressiveness=0.8)
+    print(f"Analysis complete.")
 
 
 if __name__ == "__main__":
