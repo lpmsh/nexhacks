@@ -1,12 +1,11 @@
 from pathlib import Path
 from typing import Dict
 
-from fastapi import Body, FastAPI
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from components.api_handler import APIHandler
 from cosmos import (
     BaselineSuite,
     CosmosEngine,

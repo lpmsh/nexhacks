@@ -9,6 +9,4 @@ dependencies = [
     "pydantic>=2.12.5",
     "tokenc>=0.0.7",
     "requests>=2.32.0",
-    "python-dotenv>=1.2.1",
-    "supabase>=2.27.2",
 ]

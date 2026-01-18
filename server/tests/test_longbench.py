@@ -16,7 +16,7 @@ def test_longbench_engine_smoke():
     )
     question = "Which risk was mentioned?"
     choices = ["Latency spikes", "Hiring delays", "Pricing errors", "Supplier issues"]
-    result = engine.compress(
+    result = engine.compress_longbench(
         context=context,
         question=question,
         choices=choices,
@@ -25,7 +25,9 @@ def test_longbench_engine_smoke():
         seed=7,
     )
     assert result["compressed_context"]
-    assert result["metrics"]["compressed_tokens"] <= result["metrics"]["original_tokens"]
+    assert (
+        result["metrics"]["compressed_tokens"] <= result["metrics"]["original_tokens"]
+    )
 
 
 def test_longbench_engine_deterministic():
@@ -37,7 +39,7 @@ def test_longbench_engine_deterministic():
     )
     question = "What is the deadline?"
     choices = ["September 30", "October 30", "November 30", "December 30"]
-    first = engine.compress(
+    first = engine.compress_longbench(
         context=context,
         question=question,
         choices=choices,
@@ -45,7 +47,7 @@ def test_longbench_engine_deterministic():
         target_ratio=0.5,
         seed=11,
     )
-    second = engine.compress(
+    second = engine.compress_longbench(
         context=context,
         question=question,
         choices=choices,
@@ -54,3 +56,31 @@ def test_longbench_engine_deterministic():
         seed=11,
     )
     assert first["compressed_context"] == second["compressed_context"]
+
+
+def test_longbench_cosmos_compatible_interface():
+    """Test that the Cosmos-compatible compress() method works."""
+    engine = LongBenchEngine()
+    text = (
+        "Launch Update:\n\n"
+        "The team flagged latency spikes and missing alerts as top risks. "
+        "Mitigations include circuit breakers and paging rotations. "
+        "The launch window is August 12."
+    )
+    query = "Which risk was mentioned?"
+    result = engine.compress(
+        text=text,
+        query=query,
+        token_budget=25,
+        target_ratio=0.4,
+        seed=7,
+    )
+    # Should return Cosmos-compatible response format
+    assert "compressed_text" in result
+    assert "spans" in result
+    assert "clusters" in result
+    assert "baselines" in result
+    assert result["compressed_text"]
+    assert (
+        result["metrics"]["compressed_tokens"] <= result["metrics"]["original_tokens"]
+    )
