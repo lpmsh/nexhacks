@@ -1,6 +1,5 @@
 # Irreduce
-
-Irreduce is a token-aware prompt compressor for long-context inputs. It preserves critical spans with guardrails and query-aware facility-location selection, then optionally paraphrases to hit strict budgets. The project ships with a FastAPI backend and a static demo UI.
+Irreduce compresses long prompts by splitting text into token spans, scoring each span for task relevance and global importance, then selecting the highest information-per-token spans under a tight budget while penalizing redundancy. The result keeps about 95% task performance while cutting roughly 90% of tokens, making large context inference far cheaper and more scalable.
 
 ## Demo
 - UI: http://127.0.0.1:8000/app
