@@ -79,7 +79,7 @@ export function InputOutputPane({
             rows={14}
             value={context}
             onChange={(e) => onContextChange(e.target.value)}
-            className="font-mono text-sm resize-y min-h-[280px]"
+            className="font-mono text-sm resize-y min-h-[280px] max-h-[400px] overflow-y-auto"
           />
           <div className="space-y-1.5">
             <Label htmlFor="query" className="text-sm">
@@ -129,7 +129,7 @@ export function InputOutputPane({
               )}
             </div>
             <div
-              className="min-h-[200px]  border bg-muted/30 p-3 font-mono text-sm whitespace-pre-wrap"
+              className="min-h-[200px] max-h-[300px] overflow-y-auto border bg-muted/30 p-3 font-mono text-sm whitespace-pre-wrap"
               aria-live="polite"
             >
               {compressedText || (
@@ -150,7 +150,7 @@ export function InputOutputPane({
                   {tokencSavings !== null && ` · ${tokencSavings.toFixed(1)}%`}
                 </span>
               </div>
-              <div className="min-h-[120px]  border bg-muted/30 p-3 font-mono text-sm whitespace-pre-wrap text-muted-foreground">
+              <div className="min-h-[120px] max-h-[200px] overflow-y-auto border bg-muted/30 p-3 font-mono text-sm whitespace-pre-wrap text-muted-foreground">
                 {tokenCoResult.text || "No output received."}
               </div>
             </div>
