@@ -1,0 +1,7 @@
+{
+    "original_prompt": "Summarize the following historical event:\nI\n \no\nn\nl\ny\n \nc\na\nr\ne\n \na\nb\no\nu\nt\n \nn\nu\nm\nb\ne\nr\ns\n \na\nn\nd\n \ns\nt\na\nt\ni\ns\nt\ni\nc\ns\n \nr\ne\nl\na\nt\ne\nd\n \nt\no\n \nt\nh\ne\n \nB\nl\na\nc\nk\n \nD\ne\na\nt\nh\n.",
+    "compressed_prompt": "Summarize the following historical event:\n Black Death plague pandemic Europe 1346 to 1353. fatal pandemics human history; 50 million people perished 50% Europe's 14th-century population. disease caused by bacterium Yersinia pestis spread fleas air. Black Death population economic, cultural impacts.Rohan Choudhury, Guanglei Zhu, Sihan",
+    "original_response": "Error: Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-proj-********************************************************************************************************************************************************qAAA. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'code': 'invalid_api_key', 'param': None}, 'status': 401}",
+    "compressed_response": "Error: Error code: 401 - {'error': {'message': 'Incorrect API key provided: sk-proj-********************************************************************************************************************************************************qAAA. You can find your API key at https://platform.openai.com/account/api-keys.', 'type': 'invalid_request_error', 'code': 'invalid_api_key', 'param': None}, 'status': 401}",
+    "compression_time": 0.7193422317504883
+}

@@ -18,7 +18,9 @@ class Window:
 
 
 class BM25Scorer:
-    def __init__(self, documents: Sequence[Sequence[str]], k1: float = 1.5, b: float = 0.75) -> None:
+    def __init__(
+        self, documents: Sequence[Sequence[str]], k1: float = 1.5, b: float = 0.75
+    ) -> None:
         self.k1 = k1
         self.b = b
         self.doc_term_counts: List[Dict[str, int]] = []
@@ -53,18 +55,108 @@ class BM25Scorer:
                 freq = self.doc_term_counts[i].get(tok, 0)
                 if freq == 0:
                     continue
-                denom = freq + self.k1 * (1 - self.b + self.b * self.doc_len[i] / (self.avgdl or 1.0))
+                denom = freq + self.k1 * (
+                    1 - self.b + self.b * self.doc_len[i] / (self.avgdl or 1.0)
+                )
                 scores[i] += idf * (freq * (self.k1 + 1)) / denom
         return scores
 
 
 class LongBenchEngine:
-    """LongBench-focused compressor using query+option aware scoring and windowed selection."""
+    """LongBench-focused compressor using query+option aware scoring and windowed selection.
 
-    def __init__(self, paraphrase_fn=None) -> None:
+    This engine can be used in two modes:
+    1. LongBench mode: Use compress_longbench() with context, question, and choices
+    2. Cosmos-compatible mode: Use compress() with text and query for frontend integration
+    """
+
+    def __init__(self, signal_provider=None, paraphrase_fn=None) -> None:
+        self.signal_provider = (
+            signal_provider  # Accepted for API compatibility with CosmosEngine
+        )
         self.paraphrase_fn = paraphrase_fn
 
     def compress(
+        self,
+        text: str,
+        query: Optional[str] = None,
+        token_budget: Optional[int] = None,
+        target_ratio: float = 0.5,
+        keep_last_n: int = 1,
+        toggles: Optional[Dict] = None,
+        run_baselines: bool = False,
+        baseline_suite=None,
+        seed: int = 13,
+    ) -> Dict:
+        """Cosmos-compatible compress interface for frontend integration.
+
+        Maps the Cosmos API to the LongBench engine internally.
+        """
+        toggles = toggles or {}
+        toggles.setdefault("keep_last_n", keep_last_n)
+
+        # Run the LongBench compression with empty choices (query-only mode)
+        result = self.compress_longbench(
+            context=text,
+            question=query or "",
+            choices=[],
+            token_budget=token_budget,
+            target_ratio=target_ratio,
+            seed=seed,
+            toggles=toggles,
+        )
+
+        # Transform response to match CosmosEngine output format
+        cosmos_result = {
+            "compressed_text": result.get("compressed_context", ""),
+            "selected_spans": result.get("selected_spans", []),
+            "spans": result.get("spans", []),
+            "clusters": [],  # LongBench doesn't compute clusters
+            "metrics": result.get("metrics", {}),
+            "budget": result.get("budget", 0),
+            "input_tokens": result.get("input_tokens", 0),
+            "source_tokens": result.get(
+                "input_tokens", 0
+            ),  # Same as input for LongBench
+            "span_counts": result.get("span_counts", {"selected": 0, "total": 0}),
+            "baselines": [],  # LongBench doesn't run baselines currently
+        }
+
+        # Run baselines if requested and suite is provided
+        if run_baselines and baseline_suite and result.get("spans"):
+            from .embedder import SimpleEmbedder, similarity_matrix
+
+            spans_objs = [
+                Span(
+                    id=s["id"],
+                    text=s["text"],
+                    token_count=s["token_count"],
+                    is_heading=s.get("is_heading", False),
+                    is_question=s.get("is_question", False),
+                    must_keep=s.get("must_keep", False),
+                    weight=s.get("weight", 1.0),
+                    score=s.get("score", 0.0),
+                    selected=s.get("selected", False),
+                )
+                for s in result.get("spans", [])
+            ]
+            if spans_objs:
+                embedder = SimpleEmbedder()
+                documents = [s.text for s in spans_objs]
+                embedder.fit(documents)
+                span_embeddings = embedder.transform(documents)
+                similarity = similarity_matrix(span_embeddings)
+                cosmos_result["baselines"] = baseline_suite.run_all(
+                    text=text,
+                    spans=spans_objs,
+                    similarity=similarity,
+                    token_budget=result.get("budget", 0),
+                    seed=seed,
+                )
+
+        return cosmos_result
+
+    def compress_longbench(
         self,
         context: str,
         question: str,
@@ -74,6 +166,7 @@ class LongBenchEngine:
         seed: int = 13,
         toggles: Optional[Dict] = None,
     ) -> Dict:
+        """Original LongBench compression method with question and multiple-choice options."""
         toggles = toggles or {}
         if not context:
             return {"compressed_context": "", "selected_spans": [], "metrics": {}}
@@ -94,7 +187,11 @@ class LongBenchEngine:
 
         span_tokens = [tokenize(span.text) for span in spans]
         span_token_sets = [set(tokens) for tokens in span_tokens]
-        bm25 = BM25Scorer(span_tokens, k1=float(toggles.get("bm25_k1", 1.5)), b=float(toggles.get("bm25_b", 0.75)))
+        bm25 = BM25Scorer(
+            span_tokens,
+            k1=float(toggles.get("bm25_k1", 1.5)),
+            b=float(toggles.get("bm25_b", 0.75)),
+        )
 
         question_tokens = tokenize(question or "")
         choice_tokens = [tokenize(choice) for choice in choices]
@@ -227,12 +324,18 @@ class LongBenchEngine:
 
         importance: List[float] = []
         for i, span in enumerate(spans):
-            opt_vals = [scores[i] for scores in option_scores] if option_scores else [0.0]
+            opt_vals = (
+                [scores[i] for scores in option_scores] if option_scores else [0.0]
+            )
             opt_sorted = sorted(opt_vals, reverse=True)
             best = opt_sorted[0] if opt_sorted else 0.0
             second = opt_sorted[1] if len(opt_sorted) > 1 else 0.0
             contrast = max(0.0, best - second)
-            score = question_weight * query_scores[i] + option_weight * best + contrast_weight * contrast
+            score = (
+                question_weight * query_scores[i]
+                + option_weight * best
+                + contrast_weight * contrast
+            )
 
             if span.must_keep:
                 score *= 1 + must_keep_boost
@@ -335,14 +438,20 @@ class LongBenchEngine:
         window_id = 0
         for span in spans:
             if current_ids and current_tokens + span.token_count > window_token_budget:
-                windows.append(Window(id=window_id, span_ids=current_ids, token_count=current_tokens))
+                windows.append(
+                    Window(
+                        id=window_id, span_ids=current_ids, token_count=current_tokens
+                    )
+                )
                 window_id += 1
                 current_ids = []
                 current_tokens = 0
             current_ids.append(span.id)
             current_tokens += span.token_count
         if current_ids:
-            windows.append(Window(id=window_id, span_ids=current_ids, token_count=current_tokens))
+            windows.append(
+                Window(id=window_id, span_ids=current_ids, token_count=current_tokens)
+            )
         return windows
 
     def _select_spans(
@@ -397,7 +506,9 @@ class LongBenchEngine:
                         continue
                     redundancy = 0.0
                     if selected_sets:
-                        redundancy = max(_jaccard(span_token_sets[i], s) for s in selected_sets)
+                        redundancy = max(
+                            _jaccard(span_token_sets[i], s) for s in selected_sets
+                        )
                     score = importance[i] * (1 - redundancy_penalty * redundancy)
                     score_per_token = score / max(cost, 1)
                     if score_per_token > best_score:

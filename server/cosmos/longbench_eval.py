@@ -10,7 +10,9 @@ from .scoring import build_metrics
 TokenCounter = Callable[[str], int]
 
 
-def get_token_counter(encoding_name: str = "o200k_base", model_name: Optional[str] = None) -> TokenCounter:
+def get_token_counter(
+    encoding_name: str = "o200k_base", model_name: Optional[str] = None
+) -> TokenCounter:
     try:
         import tiktoken  # type: ignore
     except Exception:
@@ -68,7 +70,10 @@ def load_longbench(
         sample = normalize_longbench_sample(row)
         if not sample:
             continue
-        if max_context_tokens is not None and token_counter(sample["context"]) > max_context_tokens:
+        if (
+            max_context_tokens is not None
+            and token_counter(sample["context"]) > max_context_tokens
+        ):
             continue
         samples.append(sample)
         if limit is not None and len(samples) >= limit:
@@ -84,7 +89,12 @@ def normalize_longbench_sample(row: Dict) -> Optional[Dict]:
     if "choices" in row and isinstance(row["choices"], list):
         choices = row["choices"]
     else:
-        choices = [row.get("choice_A"), row.get("choice_B"), row.get("choice_C"), row.get("choice_D")]
+        choices = [
+            row.get("choice_A"),
+            row.get("choice_B"),
+            row.get("choice_C"),
+            row.get("choice_D"),
+        ]
     choices = [c for c in choices if isinstance(c, str)]
     if len(choices) < 2:
         return None
@@ -124,7 +134,11 @@ def normalize_choice(text: str) -> Optional[str]:
 
 
 class LongBenchRunner:
-    def __init__(self, engine: Optional[LongBenchEngine] = None, token_counter: Optional[TokenCounter] = None) -> None:
+    def __init__(
+        self,
+        engine: Optional[LongBenchEngine] = None,
+        token_counter: Optional[TokenCounter] = None,
+    ) -> None:
         self.engine = engine or LongBenchEngine()
         self.token_counter = token_counter or count_tokens
 
@@ -142,7 +156,7 @@ class LongBenchRunner:
             original_context = sample["context"]
             context = original_context
             for _ in range(max(1, passes)):
-                result = self.engine.compress(
+                result = self.engine.compress_longbench(
                     context=context,
                     question=sample["question"],
                     choices=sample["choices"],
@@ -153,20 +167,32 @@ class LongBenchRunner:
                 )
                 context = result["compressed_context"]
             metrics = build_metrics(original_context, context)
-            results.append({**sample, "compressed_context": context, "metrics": metrics})
+            results.append(
+                {
+                    **sample,
+                    "compressed_context": context,
+                    "metrics": metrics,
+                }
+            )
         return results
 
     def build_prompts(self, samples: Sequence[Dict]) -> List[Dict]:
         payloads: List[Dict] = []
         for sample in samples:
-            prompt = build_prompt(sample["context"], sample["question"], sample["choices"])
+            prompt = build_prompt(
+                sample["context"], sample["question"], sample["choices"]
+            )
             payloads.append({**sample, "prompt": prompt})
         return payloads
 
-    def build_compressed_prompts(self, compressed_samples: Sequence[Dict]) -> List[Dict]:
+    def build_compressed_prompts(
+        self, compressed_samples: Sequence[Dict]
+    ) -> List[Dict]:
         payloads: List[Dict] = []
         for sample in compressed_samples:
-            prompt = build_prompt(sample["compressed_context"], sample["question"], sample["choices"])
+            prompt = build_prompt(
+                sample["compressed_context"], sample["question"], sample["choices"]
+            )
             payloads.append({**sample, "prompt": prompt})
         return payloads
 
@@ -187,7 +213,12 @@ class LongBenchRunner:
                 correct += 1
             rows.append({**item, "prediction": choice, "correct": is_correct})
         accuracy = correct / total if total else 0.0
-        return {"accuracy": round(accuracy, 4), "total": total, "correct": correct, "rows": rows}
+        return {
+            "accuracy": round(accuracy, 4),
+            "total": total,
+            "correct": correct,
+            "rows": rows,
+        }
 
 
 def write_jsonl(path: str, rows: Sequence[Dict]) -> None:
