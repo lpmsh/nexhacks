@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>COSMOS Track 1 Demo</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;600;700;800&family=IBM+Plex+Mono:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="ambient"></div>
+    <div class="shell">
+      <header class="hero">
+        <div class="hero-content reveal" style="--delay: 0s">
+          <p class="eyebrow">Track 1 • Alternative Compression Model</p>
+          <h1>COSMOS</h1>
+          <p class="subtitle">
+            Facility-location compression with representation-drop signals, guardrails, and query awareness.
+          </p>
+          <div class="hero-steps">
+            <span>1. Pick a scenario</span>
+            <span>2. Compress + compare</span>
+            <span>3. Explain the kept spans</span>
+          </div>
+        </div>
+        <div class="hero-panel reveal" style="--delay: 0.1s">
+          <div class="metric-card">
+            <span class="metric-label">Tokens saved</span>
+            <div class="metric-value" id="heroSavings">-</div>
+            <span class="metric-foot">Cost + latency win</span>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">Coverage score</span>
+            <div class="metric-value" id="heroCoverage">-</div>
+            <span class="metric-foot">Semantic coverage</span>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">Budget used</span>
+            <div class="metric-value" id="heroBudget">-</div>
+            <span class="metric-foot">Token budget</span>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">Spans kept</span>
+            <div class="metric-value" id="heroSpans">-</div>
+            <span class="metric-foot">Selected / total</span>
+          </div>
+        </div>
+      </header>
+
+      <section class="section process">
+        <div class="section-title reveal" style="--delay: 0.05s">
+          <h2>Compression pipeline</h2>
+          <p>Clear, compact view of the model steps and what COSMOS keeps.</p>
+        </div>
+        <div class="process-grid">
+          <article class="process-step reveal" style="--delay: 0.1s">
+            <h3>1. Chunk + guardrails</h3>
+            <p>Split context into spans, keep headings, enforce code/role constraints.</p>
+            <div class="process-stats">
+              <span class="pill" id="statSpans">- spans</span>
+              <span class="pill" id="statGuardrails">- guardrails</span>
+              <span class="pill" id="statHeadings">- headings</span>
+            </div>
+          </article>
+          <article class="process-step reveal" style="--delay: 0.15s">
+            <h3>2. Signal weighting</h3>
+            <p>Representation-drop and entity boosts elevate the most critical spans.</p>
+            <div class="signal-list" id="signalList">
+              <div class="signal-item muted">Run compression to see top signals.</div>
+            </div>
+          </article>
+          <article class="process-step reveal" style="--delay: 0.2s">
+            <h3>3. Facility-location selection</h3>
+            <p>Greedy selection maximizes coverage under a strict token budget.</p>
+            <div class="process-stats">
+              <span class="pill" id="statBudget">Budget: -</span>
+              <span class="pill" id="statCoverage">Coverage: -</span>
+              <span class="pill" id="statSelected">Kept: -</span>
+            </div>
+          </article>
+          <article class="process-step reveal" style="--delay: 0.25s">
+            <h3>4. Paraphrase squeeze</h3>
+            <p>Optional constrained paraphrase squeezes extra tokens without losing structure.</p>
+            <div class="process-stats">
+              <span class="pill" id="statParaphrase">Mode: -</span>
+              <span class="pill" id="statOutputTokens">Output: -</span>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="section scenario">
+        <div class="section-title reveal" style="--delay: 0.05s">
+          <h2>Scenario deck</h2>
+          <p>Pick a high-context sample to demonstrate the compression model.</p>
+        </div>
+        <div class="scenario-grid" id="scenarioGrid"></div>
+      </section>
+
+      <section class="section controls">
+        <div class="section-title reveal" style="--delay: 0.05s">
+          <h2>Experiment controls</h2>
+          <p>Adjust aggressiveness, guardrails, and tracking knobs for the live demo.</p>
+        </div>
+        <div class="controls-bar">
+          <div class="control">
+            <label for="apiKey">TokenCo API key (for compare)</label>
+            <div class="input-with-button">
+              <input id="apiKey" type="password" placeholder="ttc_sk_..." />
+              <button id="toggleKey" class="ghost small" aria-pressed="false">Show</button>
+            </div>
+          </div>
+          <div class="control">
+            <label for="ratio">Compression aggressiveness</label>
+            <div class="slider-row">
+              <span class="muted">Light</span>
+              <input type="range" min="0.2" max="0.9" step="0.05" id="ratio" value="0.5" />
+              <span class="muted">Aggressive</span>
+              <span class="chip" id="qualityBadge">0.50</span>
+            </div>
+            <small>Higher = more compression. COSMOS keeps ~ (1 - slider) tokens.</small>
+          </div>
+          <div class="control small">
+            <label for="lastN">Keep last N spans</label>
+            <input type="number" id="lastN" min="0" max="3" value="1" />
+          </div>
+        </div>
+
+        <div class="toggles">
+          <label><input type="checkbox" id="keepEntities" checked /> Protect entities/numbers</label>
+          <label><input type="checkbox" id="keepHeadings" checked /> Keep headings</label>
+          <span class="muted helper">Guardrails preserve sensitive spans and maintain structure.</span>
+        </div>
+
+        <details class="track-controls">
+          <summary>Track 1 knobs: signal weighting + paraphrase</summary>
+          <div class="track-grid">
+            <div class="control">
+              <label>Representation-drop signal</label>
+              <label class="toggle">
+                <input type="checkbox" id="useSignal" checked />
+                Enable signal scores
+              </label>
+              <small>Boost spans that change the representation when removed.</small>
+            </div>
+            <div class="control">
+              <label for="signalBoost">Signal boost</label>
+              <div class="slider-row">
+                <span class="muted">Low</span>
+                <input type="range" min="0" max="1" step="0.05" id="signalBoost" value="0.65" />
+                <span class="muted">High</span>
+                <span class="chip" id="signalBoostValue">0.65</span>
+              </div>
+            </div>
+            <div class="control">
+              <label for="noveltyBoost">Novelty boost</label>
+              <div class="slider-row">
+                <span class="muted">Low</span>
+                <input type="range" min="0" max="1" step="0.05" id="noveltyBoost" value="0.35" />
+                <span class="muted">High</span>
+                <span class="chip" id="noveltyBoostValue">0.35</span>
+              </div>
+            </div>
+            <div class="control">
+              <label for="paraphraseMode">Paraphrase squeeze</label>
+              <select id="paraphraseMode">
+                <option value="none">None</option>
+                <option value="heuristic">Heuristic</option>
+                <option value="llm">LLM (local or Groq)</option>
+              </select>
+              <small>LLM mode requires configured local model or Groq key.</small>
+            </div>
+          </div>
+        </details>
+      </section>
+
+      <section class="actions">
+        <div class="left">
+          <button id="demoButton" class="primary">Compress with COSMOS</button>
+          <button id="compareButton" class="ghost">Compare vs TokenCo</button>
+        </div>
+        <div class="status" id="status">Waiting for input.</div>
+      </section>
+
+      <section class="panes simple">
+        <div class="pane">
+          <div class="pane-header">
+            <h3>Input text</h3>
+            <span class="chip muted" id="inputTokens">0 tokens</span>
+          </div>
+          <textarea
+            id="context"
+            placeholder="Paste your long context, retrieval set, or transcript..."
+            rows="12"
+          ></textarea>
+          <div class="query-row">
+            <label for="query">User question (optional)</label>
+            <input id="query" type="text" placeholder="What is the assistant supposed to answer?" />
+          </div>
+        </div>
+        <div class="pane">
+          <div class="pane-header">
+            <h3>Compression output</h3>
+          </div>
+          <div class="comparison-banner" id="comparisonBanner" hidden>
+            <span class="comparison-label">Comparison</span>
+            <span id="comparisonText">COSMOS vs TokenCo</span>
+          </div>
+          <div class="dual-output">
+            <div class="output-block">
+              <div class="output-head">
+                <div>
+                  <div class="output-title">COSMOS output</div>
+                  <div class="output-meta" id="cosmosMeta">Saved - • Coverage -</div>
+                </div>
+                <span class="chip" id="cosmosTokens">- tokens</span>
+              </div>
+              <div id="compressedText" class="output" aria-live="polite">Run compression to see output.</div>
+              <div class="info-row">
+                <span class="chip" id="savingsBadge">Savings</span>
+                <span class="chip muted" id="budgetValue">Budget: -</span>
+                <span class="chip muted" id="coverageValue">Coverage: -</span>
+              </div>
+            </div>
+            <div class="output-block" id="tokenCoOutputBlock" hidden>
+              <div class="output-head">
+                <div>
+                  <div class="output-title">TokenCo output</div>
+                  <div class="output-meta muted" id="tokenCoMeta">Savings -</div>
+                </div>
+                <span class="chip muted" id="tokenCoTokens">- tokens</span>
+              </div>
+              <div id="tokenCoText" class="output muted-output">Compare to see TokenCo output.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section impact">
+        <div class="section-title reveal" style="--delay: 0.05s">
+          <h2>Compression impact</h2>
+          <p>Live token footprint from the latest run (COSMOS, TokenCo, and baselines).</p>
+        </div>
+        <div class="impact-card">
+          <div class="impact-header">Token footprint</div>
+          <div id="impactChart" class="impact-chart muted">Run compression to see chart.</div>
+        </div>
+      </section>
+
+      <details class="pane advanced">
+        <summary>Advanced: span coverage and clusters (spans = chunks we score; clusters = redundancy groups)</summary>
+        <p class="muted helper">Protect entities/numbers keeps spans with dates, numbers, and names; Keep headings preserves section titles. Spans show which chunks were kept (selected). Clusters show similar spans grouped.</p>
+        <div class="advanced-grid">
+          <div>
+            <h4>Spans</h4>
+            <div id="originalSpans" class="span-grid"></div>
+          </div>
+          <div>
+            <h4>Clusters</h4>
+            <span class="chip muted" id="clusterHint">0 groups</span>
+            <div id="clusterMap" class="cluster-list"></div>
+          </div>
+        </div>
+        <div class="baseline-grid" id="baselineGrid"></div>
+      </details>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>

@@ -1,8 +1,16 @@
-import requests
+import sys
+from pathlib import Path
 
-LOCALHOST = "http://localhost:8000"
+sys.path.append(str(Path(__file__).resolve().parents[1]))
+
+from fastapi.testclient import TestClient
+from main import app
+
+
+client = TestClient(app)
+
 
 def test_health_check():
-    response = requests.get(f"{LOCALHOST}/health")
+    response = client.get("/health")
     assert response.status_code == 200
-    
+    assert response.json()["status"] == "healthy"
