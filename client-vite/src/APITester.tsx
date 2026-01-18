@@ -29,7 +29,7 @@ export function APITester() {
     <div className="mt-8 mx-auto w-full max-w-2xl text-left flex flex-col gap-4">
       <form
         onSubmit={testEndpoint}
-        className="flex items-center gap-2 bg-card p-3 rounded-xl font-mono border border-input w-full"
+        className="flex items-center gap-2 bg-card p-3  font-mono border border-input w-full"
       >
         <Select name="method" defaultValue="GET">
           <SelectTrigger className="w-[100px]">
@@ -64,7 +64,7 @@ export function APITester() {
         placeholder="Response will appear here..."
         className={cn(
           "w-full min-h-[140px] bg-card",
-          "border border-input rounded-xl p-3",
+          "border border-input  p-3",
           "font-mono resize-y",
           "placeholder:text-muted-foreground",
         )}

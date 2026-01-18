@@ -36,7 +36,7 @@ export function HeroMetrics({ metrics, budget, spanCounts }: HeroMetricsProps) {
       : "-";
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 p-4 bg-muted/50 rounded-lg border">
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 p-4 bg-neutral-100 border">
       <MetricItem label="Tokens saved" value={savings} />
       <MetricItem label="Coverage" value={coverage} />
       <MetricItem label="Budget" value={budgetDisplay} />

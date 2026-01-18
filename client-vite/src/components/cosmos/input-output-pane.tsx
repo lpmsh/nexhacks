@@ -113,7 +113,7 @@ export function InputOutputPane({
         <CardContent className="space-y-3">
           {/* Comparison Banner */}
           {showComparison && comparisonText && (
-            <div className="text-sm px-3 py-2 rounded-md bg-muted border text-muted-foreground">
+            <div className="text-sm px-3 py-2  bg-muted border text-muted-foreground">
               {comparisonText}
             </div>
           )}
@@ -129,7 +129,7 @@ export function InputOutputPane({
               )}
             </div>
             <div
-              className="min-h-[200px] rounded-md border bg-muted/30 p-3 font-mono text-sm whitespace-pre-wrap"
+              className="min-h-[200px]  border bg-muted/30 p-3 font-mono text-sm whitespace-pre-wrap"
               aria-live="polite"
             >
               {compressedText || (
@@ -150,7 +150,7 @@ export function InputOutputPane({
                   {tokencSavings !== null && ` · ${tokencSavings.toFixed(1)}%`}
                 </span>
               </div>
-              <div className="min-h-[120px] rounded-md border bg-muted/30 p-3 font-mono text-sm whitespace-pre-wrap text-muted-foreground">
+              <div className="min-h-[120px]  border bg-muted/30 p-3 font-mono text-sm whitespace-pre-wrap text-muted-foreground">
                 {tokenCoResult.text || "No output received."}
               </div>
             </div>

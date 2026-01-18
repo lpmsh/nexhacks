@@ -19,7 +19,7 @@ function SpanItem({ span }: SpanItemProps) {
   return (
     <div
       className={cn(
-        "rounded-md p-2 border text-sm",
+        " p-2 border text-sm",
         span.selected
           ? "border-primary bg-primary/5"
           : "border-border bg-muted/30",
@@ -67,7 +67,7 @@ interface ClusterItemProps {
 
 function ClusterItem({ cluster, spans }: ClusterItemProps) {
   return (
-    <div className="p-2 rounded-md bg-muted/30 border border-dashed text-sm">
+    <div className="p-2  bg-muted/30 border border-dashed text-sm">
       <div className="text-xs text-muted-foreground mb-1.5">
         Cluster {cluster.cluster}
       </div>
@@ -130,7 +130,7 @@ export function AdvancedDetails({
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
       <Card>
         <CollapsibleTrigger asChild>
-          <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors pb-3">
+          <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base font-medium">
                 Advanced details

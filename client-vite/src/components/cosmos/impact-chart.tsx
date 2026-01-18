@@ -34,10 +34,10 @@ function ImpactRow({
   return (
     <div className="flex items-center gap-3 text-sm">
       <div className="w-20 shrink-0 text-muted-foreground">{item.label}</div>
-      <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+      <div className="flex-1 h-2 bg-muted  overflow-hidden">
         <div
           className={cn(
-            "h-full rounded-full transition-all",
+            "h-full  transition-all",
             item.kind === "cosmos" && "bg-primary",
             item.kind === "tokenc" && "bg-emerald-500",
             item.kind === "input" && "bg-muted-foreground/30",
