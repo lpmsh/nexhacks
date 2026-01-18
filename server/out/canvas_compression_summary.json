@@ -1,0 +1,9 @@
+{
+  "avg_savings_percent": 84.54,
+  "total_original_tokens": 1465093,
+  "total_estimated_image_tokens": 217752,
+  "total_tokens_saved": 1247341,
+  "compression_ratio": 0.1486,
+  "total_images": 844,
+  "avg_images_per_sample": 28.13
+}

@@ -106,12 +106,13 @@ def build_prompt(context: str, question: str, choices: Sequence[str]) -> str:
     option_lines = [f"{letters[i]}. {choice}" for i, choice in enumerate(choices)]
     return (
         "Read the context and answer the multiple-choice question.\n"
-        "Answer with a single letter (A, B, C, D, ...).\n\n"
+        "IMPORTANT: You MUST end your response with exactly: [[X]] where X is A, B, C, or D.\n"
+        "Examples: [[A]] or [[B]] or [[C]] or [[D]]\n\n"
         f"Context:\n{context}\n\n"
         f"Question: {question}\n"
         "Options:\n"
         f"{chr(10).join(option_lines)}\n\n"
-        "Answer:"
+        "Your answer (must end with [[X]] format):"
     )
 
 
