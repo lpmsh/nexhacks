@@ -11,6 +11,7 @@ class TokenCoClient:
         self.api_key = api_key or os.getenv("TOKENC_API_KEY") or os.getenv("TTC_API_KEY")
         self._client = None
         self.available = False
+        self.error = None
 
         try:
             import tokenc  # type: ignore
@@ -18,8 +19,11 @@ class TokenCoClient:
             if self.api_key:
                 self._client = tokenc.TokenClient(api_key=self.api_key)
                 self.available = True
-        except Exception:
+            else:
+                self.error = "No API key found (TOKENC_API_KEY or TTC_API_KEY)"
+        except Exception as e:
             self.available = False
+            self.error = str(e)
 
     def compress(
         self,
