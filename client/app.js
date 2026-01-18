@@ -1,3 +1,7 @@
+// API base URL - empty string means same origin (when served by FastAPI at /app)
+// Change to "http://localhost:8000" if running frontend separately
+const API_BASE = "";
+
 const queryEl = document.getElementById("query");
 const contextEl = document.getElementById("context");
 const ratioEl = document.getElementById("ratio");
@@ -50,7 +54,8 @@ const impactChartEl = document.getElementById("impactChart");
 const FALLBACK_SCENARIOS = [
   {
     category: "rag_overload",
-    query: "What are the key risks and required controls for the payment rollout?",
+    query:
+      "What are the key risks and required controls for the payment rollout?",
     text: `Background: Payment API launch for EU and US merchants next quarter. Compliance and reliability are the top constraints.
 
 Risk: duplicate charge bugs seen in prior beta. Impact: double billing, refunds, support overload. Control: require idempotency keys, run replay tests on critical flows, and block deploys if error rate >0.5%.
@@ -132,7 +137,9 @@ function formatBaselineName(name) {
 function normalizeScenario(raw, index) {
   const query = raw.query || "";
   const text = raw.text || "";
-  const title = query ? shorten(query, 56) : shorten(text.split("\n")[0] || "Scenario", 56);
+  const title = query
+    ? shorten(query, 56)
+    : shorten(text.split("\n")[0] || "Scenario", 56);
   const summary = shorten(text.replace(/\s+/g, " ").trim(), 92);
   return {
     id: raw.id ?? index,
@@ -159,7 +166,13 @@ function syncStats() {
   noveltyBoostValueEl.textContent = Number(noveltyBoostEl.value).toFixed(2);
 }
 
-function updateMetricBar(metrics = {}, budget = null, spansKept = null, spansTotal = null, inputTokens = null) {
+function updateMetricBar(
+  metrics = {},
+  budget = null,
+  spansKept = null,
+  spansTotal = null,
+  inputTokens = null,
+) {
   if (!metrics) return;
   if (inputTokens !== null) {
     inputTokensEl.textContent = `${inputTokens} tokens`;
@@ -169,7 +182,10 @@ function updateMetricBar(metrics = {}, budget = null, spansKept = null, spansTot
     metrics.savings_percent !== undefined
       ? `Saved ${metrics.savings_percent}% • Coverage ${metrics.coverage_score ?? "-"}`
       : "Saved - • Coverage -";
-  const spanText = spansKept !== null && spansTotal !== null ? ` • spans ${spansKept}/${spansTotal}` : "";
+  const spanText =
+    spansKept !== null && spansTotal !== null
+      ? ` • spans ${spansKept}/${spansTotal}`
+      : "";
   budgetValueEl.textContent = `Budget: ${budget ?? "-"}${spanText}`;
   coverageValueEl.textContent = `Coverage: ${metrics.coverage_score ?? "-"}`;
   savingsBadgeEl.textContent =
@@ -179,13 +195,27 @@ function updateMetricBar(metrics = {}, budget = null, spansKept = null, spansTot
 }
 
 function updateHero(metrics, budget, spansKept, spansTotal) {
-  heroSavingsEl.textContent = metrics?.savings_percent !== undefined ? `${metrics.savings_percent}%` : "-";
-  heroCoverageEl.textContent = metrics?.coverage_score !== undefined ? metrics.coverage_score : "-";
+  heroSavingsEl.textContent =
+    metrics?.savings_percent !== undefined
+      ? `${metrics.savings_percent}%`
+      : "-";
+  heroCoverageEl.textContent =
+    metrics?.coverage_score !== undefined ? metrics.coverage_score : "-";
   heroBudgetEl.textContent = budget ?? "-";
-  heroSpansEl.textContent = spansKept !== null && spansTotal !== null ? `${spansKept}/${spansTotal}` : "-";
+  heroSpansEl.textContent =
+    spansKept !== null && spansTotal !== null
+      ? `${spansKept}/${spansTotal}`
+      : "-";
 }
 
-function updateProcessStats(spans, metrics, toggles, budget, spansKept, spansTotal) {
+function updateProcessStats(
+  spans,
+  metrics,
+  toggles,
+  budget,
+  spansKept,
+  spansTotal,
+) {
   const total = spans?.length || 0;
   const mustKeep = spans?.filter((s) => s.must_keep).length || 0;
   const headings = spans?.filter((s) => s.is_heading).length || 0;
@@ -194,7 +224,10 @@ function updateProcessStats(spans, metrics, toggles, budget, spansKept, spansTot
   statHeadingsEl.textContent = `headings ${headings}`;
   statBudgetEl.textContent = `Budget: ${budget ?? "-"}`;
   statCoverageEl.textContent = `Coverage: ${metrics?.coverage_score ?? "-"}`;
-  statSelectedEl.textContent = spansKept !== null && spansTotal !== null ? `Kept: ${spansKept}/${spansTotal}` : "Kept: -";
+  statSelectedEl.textContent =
+    spansKept !== null && spansTotal !== null
+      ? `Kept: ${spansKept}/${spansTotal}`
+      : "Kept: -";
   statParaphraseEl.textContent = `Mode: ${toggles?.paraphrase_mode ?? "none"}`;
   statOutputTokensEl.textContent = `Output: ${metrics?.compressed_tokens ?? "-"}`;
 }
@@ -321,7 +354,8 @@ function extractTokencTokens(tokenc) {
 
 function extractTokencSavings(tokenc) {
   if (!tokenc) return null;
-  const savings = tokenc.compression_percentage ?? tokenc.metrics?.savings_percent;
+  const savings =
+    tokenc.compression_percentage ?? tokenc.metrics?.savings_percent;
   return savings !== undefined && savings !== null ? Number(savings) : null;
 }
 
@@ -334,11 +368,20 @@ function renderImpactChart(payload) {
   }
 
   const items = [];
-  items.push({ label: "Input", tokens: payload.inputTokens, kind: "input", savings: null });
+  items.push({
+    label: "Input",
+    tokens: payload.inputTokens,
+    kind: "input",
+    savings: null,
+  });
   items.push({ label: "COSMOS", tokens: payload.cosmosTokens, kind: "cosmos" });
 
   if (payload.tokencTokens) {
-    items.push({ label: "TokenCo", tokens: payload.tokencTokens, kind: "tokenc" });
+    items.push({
+      label: "TokenCo",
+      tokens: payload.tokencTokens,
+      kind: "tokenc",
+    });
   }
 
   (payload.baselines || []).forEach((baseline) => {
@@ -374,7 +417,8 @@ function renderImpactChart(payload) {
       item.savings !== null && item.savings !== undefined
         ? item.savings
         : Math.max(0, (1 - item.tokens / payload.inputTokens) * 100);
-    const savingsText = item.label === "Input" ? "" : ` • ${savings.toFixed(1)}%`;
+    const savingsText =
+      item.label === "Input" ? "" : ` • ${savings.toFixed(1)}%`;
     value.textContent = `${item.tokens}t${savingsText}`;
 
     row.appendChild(label);
@@ -429,16 +473,21 @@ function applyCosmosResults(data, toggles, tokenc = null) {
     data.budget,
     data.span_counts?.selected ?? null,
     data.span_counts?.total ?? null,
-    data.input_tokens ?? countTokens(contextEl.value)
+    data.input_tokens ?? countTokens(contextEl.value),
   );
-  updateHero(data.metrics, data.budget, data.span_counts?.selected ?? null, data.span_counts?.total ?? null);
+  updateHero(
+    data.metrics,
+    data.budget,
+    data.span_counts?.selected ?? null,
+    data.span_counts?.total ?? null,
+  );
   updateProcessStats(
     data.spans || [],
     data.metrics,
     toggles,
     data.budget,
     data.span_counts?.selected ?? null,
-    data.span_counts?.total ?? null
+    data.span_counts?.total ?? null,
   );
   renderSignalList(data.spans || []);
   updateComparisonBanner(data.metrics, tokenc);
@@ -470,7 +519,7 @@ async function compressPrompt() {
     toggles,
   };
   try {
-    const res = await fetch("/compress", {
+    const res = await fetch(`${API_BASE}/compress`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -501,7 +550,7 @@ async function compareTokenc() {
     toggles,
   };
   try {
-    const res = await fetch("/compare", {
+    const res = await fetch(`${API_BASE}/compare`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -518,7 +567,9 @@ async function compareTokenc() {
         savings !== null ? `Saved ${savings.toFixed(2)}%` : "Savings: n/a";
       tokenCoTextEl.textContent = tokenc.text || "No output received.";
     }
-    setStatus(tokenc ? "Compared vs TokenCo" : "COSMOS done; TokenCo unavailable");
+    setStatus(
+      tokenc ? "Compared vs TokenCo" : "COSMOS done; TokenCo unavailable",
+    );
   } catch (err) {
     console.error(err);
     setStatus("Comparison failed", true);
@@ -582,7 +633,7 @@ async function initScenarioDeck() {
   scenarioDeck = FALLBACK_SCENARIOS.map(normalizeScenario);
   renderScenarioDeck(scenarioDeck);
   try {
-    const res = await fetch("/examples");
+    const res = await fetch(`${API_BASE}/examples`);
     if (res.ok) {
       const data = await res.json();
       if (data.examples?.length) {
@@ -616,7 +667,9 @@ toggleKeyEl.addEventListener("click", () => {
 });
 
 document.getElementById("demoButton").addEventListener("click", compressPrompt);
-document.getElementById("compareButton").addEventListener("click", compareTokenc);
+document
+  .getElementById("compareButton")
+  .addEventListener("click", compareTokenc);
 
 ratioEl.addEventListener("input", syncStats);
 contextEl.addEventListener("input", syncStats);

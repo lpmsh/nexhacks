@@ -3,24 +3,28 @@ from typing import Dict
 
 from fastapi import Body, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from components.api_handler import APIHandler
-from cosmos import BaselineSuite, CosmosEngine, EvaluationRunner, TokenCoClient, LongBenchEngine
-from cosmos.local_llm import build_signal_and_paraphrase
+from cosmos import (
+    BaselineSuite,
+    CosmosEngine,
+    EvaluationRunner,
+    LongBenchEngine,
+    TokenCoClient,
+)
 from cosmos.demo_data import SAMPLE_BATCH
+from cosmos.local_llm import build_signal_and_paraphrase
 from schemas.compress import (
+    CompareRequest,
     CompressionRequest,
     CompressionResponse,
-    CompareRequest,
     EvaluationRequest,
     EvaluationResponse,
     LongBenchCompressionRequest,
     LongBenchCompressionResponse,
 )
-
-from fastapi import FastAPI
-from components.api_handler import APIHandler
 
 app = FastAPI(
     title="COSMOS Compression API",
@@ -49,8 +53,8 @@ evaluator = EvaluationRunner(engine, baselines, tokenc_client)
 
 
 @app.get("/")
-async def root() -> Dict[str, str]:
-    return {"message": "COSMOS compressor ready", "ui": "/app", "docs": "/docs"}
+async def root():
+    return RedirectResponse(url="/app/")
 
 
 @app.get("/health")
@@ -93,7 +97,9 @@ async def compress_longbench(
 @app.post("/compare")
 async def compare(request: CompareRequest) -> Dict:
     # Allow per-request TokenCo API key to avoid hardcoded keys.
-    tokenc = tokenc_client if not request.api_key else TokenCoClient(api_key=request.api_key)
+    tokenc = (
+        tokenc_client if not request.api_key else TokenCoClient(api_key=request.api_key)
+    )
     cosmos_result = engine.compress(
         text=request.text,
         query=request.query,

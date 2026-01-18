@@ -1,0 +1,44 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+
+@import "../styles/globals.css";
+
+@layer base {
+  :root {
+    --font-sans:
+      "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --font-mono:
+      ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  }
+
+  html {
+    font-family: var(--font-sans);
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    min-height: 100vh;
+  }
+
+  code,
+  pre,
+  .font-mono {
+    font-family: var(--font-mono);
+  }
+}
+
+@layer utilities {
+  .animate-in {
+    animation: fadeIn 0.3s ease-out both;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}

@@ -51,8 +51,6 @@ wheels = [
 ]
 
 [[package]]
-<<<<<<< HEAD
-=======
 name = "cffi"
 version = "2.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -98,7 +96,6 @@ wheels = [
 ]
 
 [[package]]
->>>>>>> origin/main
 name = "charset-normalizer"
 version = "3.4.4"
 source = { registry = "https://pypi.org/simple" }
@@ -1055,8 +1052,6 @@ wheels = [
 ]
 
 [[package]]
-<<<<<<< HEAD
-=======
 name = "realtime"
 version = "2.27.2"
 source = { registry = "https://pypi.org/simple" }
@@ -1071,7 +1066,6 @@ wheels = [
 ]
 
 [[package]]
->>>>>>> origin/main
 name = "requests"
 version = "2.32.5"
 source = { registry = "https://pypi.org/simple" }
@@ -1186,26 +1180,20 @@ source = { virtual = "." }
 dependencies = [
     { name = "fastapi", extra = ["standard"] },
     { name = "pydantic" },
-<<<<<<< HEAD
-    { name = "requests" },
-    { name = "tokenc" },
-=======
     { name = "python-dotenv" },
+    { name = "requests" },
     { name = "supabase" },
->>>>>>> origin/main
+    { name = "tokenc" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "fastapi", extras = ["standard"], specifier = ">=0.128.0" },
     { name = "pydantic", specifier = ">=2.12.5" },
-<<<<<<< HEAD
-    { name = "requests", specifier = ">=2.32.0" },
-    { name = "tokenc", specifier = ">=0.0.7" },
-=======
     { name = "python-dotenv", specifier = ">=1.2.1" },
+    { name = "requests", specifier = ">=2.32.0" },
     { name = "supabase", specifier = ">=2.27.2" },
->>>>>>> origin/main
+    { name = "tokenc", specifier = ">=0.0.7" },
 ]
 
 [[package]]
@@ -1248,17 +1236,6 @@ wheels = [
 ]
 
 [[package]]
-<<<<<<< HEAD
-name = "tokenc"
-version = "0.1.2"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "requests" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/11/2c/2046f25207756adef3087e4bcb40c6cae26fa9fa18fa1daac27f590ffdf0/tokenc-0.1.2.tar.gz", hash = "sha256:f026102773948ff6dcda0327a1193368569588bff3945d1181da6ae83a3075b4", size = 17799, upload-time = "2026-01-15T08:02:07.702Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/fb/6f/ff0cc65f34f0402ac987a87041bf5e49a4806a654555fd67a41e8733efc5/tokenc-0.1.2-py3-none-any.whl", hash = "sha256:623e172964c75b4ae5335eeb34c67f417b6e9831d013805a911bc0a54937243e", size = 8684, upload-time = "2026-01-15T08:02:06.702Z" },
-=======
 name = "storage3"
 version = "2.27.2"
 source = { registry = "https://pypi.org/simple" }
@@ -1348,7 +1325,18 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/0a/d4/2b0cd0fe285e14b36db076e78c93766ff1d529d70408bd1d2a5a84f1d929/tenacity-9.1.2.tar.gz", hash = "sha256:1169d376c297e7de388d18b4481760d478b0e99a777cad3a9c86e556f4b697cb", size = 48036, upload-time = "2025-04-02T08:25:09.966Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/e5/30/643397144bfbfec6f6ef821f36f33e57d35946c44a2352d3c9f0ae847619/tenacity-9.1.2-py3-none-any.whl", hash = "sha256:f77bf36710d8b73a50b2dd155c97b870017ad21afe6ab300326b0371b3b05138", size = 28248, upload-time = "2025-04-02T08:25:07.678Z" },
->>>>>>> origin/main
+]
+
+[[package]]
+name = "tokenc"
+version = "0.1.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "requests" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/11/2c/2046f25207756adef3087e4bcb40c6cae26fa9fa18fa1daac27f590ffdf0/tokenc-0.1.2.tar.gz", hash = "sha256:f026102773948ff6dcda0327a1193368569588bff3945d1181da6ae83a3075b4", size = 17799, upload-time = "2026-01-15T08:02:07.702Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/fb/6f/ff0cc65f34f0402ac987a87041bf5e49a4806a654555fd67a41e8733efc5/tokenc-0.1.2-py3-none-any.whl", hash = "sha256:623e172964c75b4ae5335eeb34c67f417b6e9831d013805a911bc0a54937243e", size = 8684, upload-time = "2026-01-15T08:02:06.702Z" },
 ]
 
 [[package]]
