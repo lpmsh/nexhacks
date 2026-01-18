@@ -113,8 +113,8 @@ export function useCosmos(
   fallbackScenarios: RawScenario[],
 ): CosmosState & CosmosActions {
   // Input state
-  const [query, setQuery] = useState("");
-  const [context, setContext] = useState("");
+  const [query, setQueryInternal] = useState("");
+  const [context, setContextInternal] = useState("");
   const [ratio, setRatio] = useState(0.5);
   const [lastN, setLastN] = useState(1);
   const [apiKey, setApiKey] = useState("");
@@ -156,6 +156,30 @@ export function useCosmos(
     setStatusError(isError);
   }, []);
 
+  // Reset output state when input changes
+  const clearResults = useCallback(() => {
+    setCompressionResult(null);
+    setTokenCoResult(null);
+    setShowTokenCoOutput(false);
+    setShowComparison(false);
+  }, []);
+
+  const setContext = useCallback(
+    (value: string) => {
+      setContextInternal(value);
+      clearResults();
+    },
+    [clearResults],
+  );
+
+  const setQuery = useCallback(
+    (value: string) => {
+      setQueryInternal(value);
+      clearResults();
+    },
+    [clearResults],
+  );
+
   const buildToggles = useCallback((): Toggles => {
     return {
       keep_numbers_entities: keepEntities,
@@ -181,16 +205,14 @@ export function useCosmos(
       const scenario = scenarios[index];
       if (!scenario) return;
       setSelectedScenarioIndex(index);
-      setQuery(scenario.query || "");
-      setContext(scenario.text || "");
+      // Use internal setters to avoid triggering clearResults twice
+      setQueryInternal(scenario.query || "");
+      setContextInternal(scenario.text || "");
       // Clear previous results when switching scenarios
-      setCompressionResult(null);
-      setTokenCoResult(null);
-      setShowTokenCoOutput(false);
-      setShowComparison(false);
+      clearResults();
       updateStatus(`Loaded scenario: ${scenario.title}`);
     },
-    [scenarios, updateStatus],
+    [scenarios, clearResults, updateStatus],
   );
 
   const compress = useCallback(async () => {

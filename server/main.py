@@ -82,7 +82,7 @@ async def compress(request: CompressionRequest) -> CompressionResponse:
 async def compress_longbench(
     request: LongBenchCompressionRequest,
 ) -> LongBenchCompressionResponse:
-    result = longbench_engine.compress(
+    result = longbench_engine.compress_longbench(
         context=request.context,
         question=request.question,
         choices=request.choices,
@@ -138,9 +138,3 @@ async def evaluate(request: EvaluationRequest) -> EvaluationResponse:
 @app.get("/examples")
 async def examples() -> Dict:
     return {"examples": SAMPLE_BATCH}
-
-
-@app.post("/new/market")
-async def create_market(payload: dict = Body(...)):
-    # Legacy path; keeps earlier test harness intact.
-    return APIHandler.create_market(payload)

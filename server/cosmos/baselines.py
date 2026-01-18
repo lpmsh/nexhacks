@@ -1,7 +1,6 @@
 import random
 from typing import Dict, List, Sequence
 
-from .chunker import count_tokens
 from .scoring import build_metrics
 from .types import Span
 
