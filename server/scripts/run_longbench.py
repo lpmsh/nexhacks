@@ -18,11 +18,6 @@ from cosmos.longbench_variants import get_variant, list_variants
 from cosmos.token_client import TokenCoClient
 from tokenc import TokenClient
 
-# small_compress compressor (see server/small_compress/*)
-from small_compress.custom_compressor import CustomCompressor
-from small_compress.vector_store import VectorStore
-from small_compress.logger import Logger
-
 
 def load_env_file(env_path: Path) -> None:
     if not env_path.exists():
@@ -409,6 +404,14 @@ def main() -> None:
             json.dump(bear_savings, handle, ensure_ascii=True, indent=2)
 
     if args.custom:
+        try:
+            from small_compress.custom_compressor import CustomCompressor
+            from small_compress.vector_store import VectorStore
+            from small_compress.logger import Logger
+        except Exception as exc:
+            raise SystemExit(
+                "Custom compressor dependencies missing. Install small_compress requirements or skip --custom."
+            ) from exc
         tokenc_key = os.getenv("TOKEN_COMPANY_API_KEY")
         if not tokenc_key:
             raise SystemExit("Missing TOKEN_COMPANY_API_KEY for custom compressor")
