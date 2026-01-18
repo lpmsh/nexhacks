@@ -58,6 +58,24 @@ write_jsonl("out/longbench_baseline_prompts.jsonl", baseline_prompts)
 write_jsonl("out/longbench_compressed_prompts.jsonl", compressed_prompts)
 ```
 
+## Scripted end-to-end runner
+Use the CLI to generate prompts and optionally run model evaluation via an OpenAI-compatible endpoint.
+```bash
+python scripts/run_longbench.py \
+  --data data/longbench_v2.jsonl \
+  --limit 230 \
+  --max-context-tokens 100000 \
+  --target-ratio 0.4 \
+  --mode both \
+  --out-dir out \
+  --eval
+```
+
+Environment variables (required for `--eval`):
+- `OPENAI_API_KEY`
+- `OPENAI_MODEL` (default: gpt-4o-mini)
+- `OPENAI_BASE_URL` (default: https://api.openai.com/v1)
+
 ## Optional LLM evaluation hook
 Implement a predictor that takes a prompt and returns a single letter (A/B/C/D).
 ```python

@@ -15,13 +15,20 @@ def get_token_counter(encoding_name: str = "o200k_base", model_name: Optional[st
     except Exception:
         return count_tokens
 
+    enc = None
     if model_name:
         try:
             enc = tiktoken.encoding_for_model(model_name)
         except Exception:
+            enc = None
+    if enc is None:
+        try:
             enc = tiktoken.get_encoding(encoding_name)
-    else:
-        enc = tiktoken.get_encoding(encoding_name)
+        except Exception:
+            try:
+                enc = tiktoken.get_encoding("cl100k_base")
+            except Exception:
+                return count_tokens
 
     def counter(text: str) -> int:
         return len(enc.encode(text))
