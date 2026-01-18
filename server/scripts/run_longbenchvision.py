@@ -591,12 +591,16 @@ def _compress_single_sample(
     idx, sample = sample_with_idx
     sample_id = sample.get("id", idx)
     
-    print(f"  Sample {idx+1} (ID: {sample_id}): Converting {len(sample['context'])} chars to images...", end=" ")
+    # Use compressed_context if available (for compressed_canvas mode), otherwise use context
+    text_to_compress = sample.get("compressed_context") or sample["context"]
+    text_label = "compressed" if "compressed_context" in sample else "original"
+    
+    print(f"  Sample {idx+1} (ID: {sample_id}): Converting {len(text_to_compress)} chars ({text_label}) to images...", end=" ")
     
     start = time.perf_counter()
     
     canvas_result = compress_text_to_canvas(
-        text=sample["context"],
+        text=text_to_compress,
         client=None,  # Not needed for local token estimation
         model=None,
         tokens_per_image=tokens_per_image,
@@ -616,17 +620,32 @@ def _compress_single_sample(
     
     print(f"✓ {canvas_result['num_images']} images ({duration:.2f}s)")
     
+    # Preserve existing metrics if present (for compressed_canvas mode)
+    existing_metrics = sample.get("metrics", {})
+    
+    # Merge canvas metrics with existing metrics
+    canvas_metrics = {
+        "original_tokens": original_tokens,
+        "estimated_image_tokens": estimated_image_tokens,
+        "num_images": canvas_result["num_images"],
+        "savings_percent": round(savings_percent, 2),
+        "compression_ratio": round(estimated_image_tokens / original_tokens, 4) if original_tokens > 0 else 1.0,
+    }
+    
+    # If we have existing metrics (from compression), preserve them
+    if existing_metrics:
+        # Keep original compression metrics
+        canvas_metrics["compressed_tokens"] = existing_metrics.get("compressed_tokens", original_tokens)
+        canvas_metrics["compression_savings_percent"] = existing_metrics.get("savings_percent", 0.0)
+        # Use original_tokens from compression if available
+        if "original_tokens" in existing_metrics:
+            canvas_metrics["original_tokens"] = existing_metrics["original_tokens"]
+    
     result = {
         **sample,
         "canvas_images": canvas_result["images"],
         "num_images": canvas_result["num_images"],
-        "metrics": {
-            "original_tokens": original_tokens,
-            "estimated_image_tokens": estimated_image_tokens,
-            "num_images": canvas_result["num_images"],
-            "savings_percent": round(savings_percent, 2),
-            "compression_ratio": round(estimated_image_tokens / original_tokens, 4) if original_tokens > 0 else 1.0,
-        },
+        "metrics": canvas_metrics,
         "compression_latency_s": round(duration, 4),
     }
     
@@ -946,7 +965,8 @@ def main() -> None:
     parser.add_argument("--max-context-tokens", type=int, default=100000)
     parser.add_argument("--target-ratio", type=float, default=0.4)
     parser.add_argument("--token-budget", type=int, default=None)
-    parser.add_argument("--mode", choices=["baseline", "compressed", "canvas", "bear", "both", "all"], default="both")
+    parser.add_argument("--passes", type=int, default=1, help="Number of compression passes.")
+    parser.add_argument("--mode", choices=["baseline", "compressed", "canvas", "compressed_canvas", "bear", "both", "all"], default="both")
     parser.add_argument("--runs", type=int, default=1)
     parser.add_argument("--out-dir", default="out")
     parser.add_argument("--eval", action="store_true")
@@ -991,7 +1011,7 @@ def main() -> None:
     os.makedirs(args.out_dir, exist_ok=True)
 
     # Check if canvas mode requires PIL
-    use_canvas = args.canvas or args.mode in ("canvas", "all")
+    use_canvas = args.canvas or args.mode in ("canvas", "compressed_canvas", "all")
     if use_canvas and not _ensure_pil():
         raise SystemExit("Canvas mode requires Pillow. Install with: pip install Pillow")
 
@@ -1026,6 +1046,8 @@ def main() -> None:
     bear_savings = {}
     canvas_samples = []
     canvas_savings = {}
+    compressed_canvas_samples = []
+    compressed_canvas_savings = {}
     
     # Build baseline prompts
     if args.mode in ("baseline", "both", "all"):
@@ -1034,12 +1056,14 @@ def main() -> None:
         print(f"Wrote {len(baseline_prompts)} baseline prompts")
     
     # Build compressed prompts (original compression)
-    if args.mode in ("compressed", "both", "all"):
+    if args.mode in ("compressed", "both", "all", "compressed_canvas"):
+        print("[prepare] running longbench compressor")
         compressed_samples = runner.compress_samples(
             samples,
             target_ratio=args.target_ratio,
             token_budget=args.token_budget,
             seed=args.seed,
+            passes=args.passes,
         )
         compressed_prompts = runner.build_compressed_prompts(compressed_samples)
         write_jsonl(os.path.join(args.out_dir, "compressed_prompts.jsonl"), compressed_prompts)
@@ -1049,8 +1073,98 @@ def main() -> None:
         with open(os.path.join(args.out_dir, "compression_summary.json"), "w", encoding="utf-8") as handle:
             json.dump(savings, handle, ensure_ascii=True, indent=2)
     
-    # Build canvas compression (text-to-image)
-    if use_canvas:
+    # Build compressed_canvas mode: compress first, then convert to canvas
+    if args.mode == "compressed_canvas":
+        if not compressed_samples:
+            print("[prepare] running longbench compressor for compressed_canvas mode")
+            compressed_samples = runner.compress_samples(
+                samples,
+                target_ratio=args.target_ratio,
+                token_budget=args.token_budget,
+                seed=args.seed,
+                passes=args.passes,
+            )
+        
+        print(f"Compressing {len(compressed_samples)} pre-compressed samples to canvas images...")
+        print(f"  Target tokens per image: {args.canvas_tokens_per_image}")
+        print(f"  Canvas size: {args.canvas_size}x{args.canvas_size}")
+        print(f"  Font size: {args.canvas_font_size}")
+        
+        compressed_canvas_samples = compress_samples_to_canvas(
+            compressed_samples,  # Use compressed samples instead of original samples
+            client=gemini_client,
+            model=args.model,
+            tokens_per_image=args.canvas_tokens_per_image,
+            canvas_size=args.canvas_size,
+            font_size=args.canvas_font_size,
+            padding=args.canvas_padding,
+            token_counter=token_counter,
+            max_workers=args.canvas_workers,
+        )
+        
+        # Optionally save images for inspection
+        if args.save_canvas_images:
+            img_dir = os.path.join(args.out_dir, "compressed_canvas_images")
+            os.makedirs(img_dir, exist_ok=True)
+            for i, sample in enumerate(compressed_canvas_samples):
+                sample_id = sample.get("id", i)
+                for j, img_bytes in enumerate(sample["canvas_images"]):
+                    img_path = os.path.join(img_dir, f"{sample_id}_page{j}.png")
+                    with open(img_path, "wb") as f:
+                        f.write(img_bytes)
+            print(f"  Saved compressed canvas images to {img_dir}")
+        
+        # Write summary (without image bytes)
+        compressed_canvas_summary_data = []
+        for sample in compressed_canvas_samples:
+            summary = {k: v for k, v in sample.items() if k != "canvas_images"}
+            compressed_canvas_summary_data.append(summary)
+        write_jsonl(os.path.join(args.out_dir, "compressed_canvas_samples.jsonl"), compressed_canvas_summary_data)
+        
+        # Calculate and display detailed compression stats
+        compressed_canvas_savings = summarize_savings(compressed_canvas_samples)
+        total_images = sum(s["num_images"] for s in compressed_canvas_samples)
+        # For compressed_canvas, use metrics from compression step if available
+        # The compressed_samples have metrics with original_tokens and compressed_tokens
+        total_original = sum(s.get("metrics", {}).get("original_tokens", 0) for s in compressed_canvas_samples)
+        # If metrics don't have original_tokens, fall back to token_counter
+        if total_original == 0:
+            total_original = sum(token_counter(s.get("context", "")) for s in compressed_canvas_samples)
+        total_compressed_text = sum(s.get("metrics", {}).get("compressed_tokens", 0) for s in compressed_canvas_samples)
+        # If metrics don't have compressed_tokens, fall back to token_counter
+        if total_compressed_text == 0:
+            total_compressed_text = sum(token_counter(s.get("compressed_context", "")) for s in compressed_canvas_samples)
+        total_estimated_image = sum(s.get("metrics", {}).get("estimated_image_tokens", 0) for s in compressed_canvas_samples)
+        total_saved_vs_original = total_original - total_estimated_image
+        total_saved_vs_compressed = total_compressed_text - total_estimated_image
+        savings_percent_vs_original = (total_saved_vs_original / total_original * 100) if total_original > 0 else 0.0
+        savings_percent_vs_compressed = (total_saved_vs_compressed / total_compressed_text * 100) if total_compressed_text > 0 else 0.0
+        
+        print(f"\nCompressed Canvas Compression Statistics:")
+        print(f"  Original tokens: {total_original:,}")
+        print(f"  Compressed text tokens: {total_compressed_text:,}")
+        print(f"  Estimated image tokens: {total_estimated_image:,}")
+        print(f"  Tokens saved vs original: {total_saved_vs_original:,} ({savings_percent_vs_original:.1f}%)")
+        print(f"  Tokens saved vs compressed: {total_saved_vs_compressed:,} ({savings_percent_vs_compressed:.1f}%)")
+        print(f"  Compression ratio (vs original): {total_estimated_image/total_original:.2%}" if total_original > 0 else "  Compression ratio: N/A")
+        print(f"  Total images: {total_images} (avg {round(total_images / len(compressed_canvas_samples), 2)} per sample)")
+        
+        compressed_canvas_savings["total_original_tokens"] = total_original
+        compressed_canvas_savings["total_compressed_text_tokens"] = total_compressed_text
+        compressed_canvas_savings["total_estimated_image_tokens"] = total_estimated_image
+        compressed_canvas_savings["total_tokens_saved_vs_original"] = total_saved_vs_original
+        compressed_canvas_savings["total_tokens_saved_vs_compressed"] = total_saved_vs_compressed
+        compressed_canvas_savings["savings_percent_vs_original"] = round(savings_percent_vs_original, 2)
+        compressed_canvas_savings["savings_percent_vs_compressed"] = round(savings_percent_vs_compressed, 2)
+        compressed_canvas_savings["compression_ratio_vs_original"] = round(total_estimated_image / total_original, 4) if total_original > 0 else 1.0
+        compressed_canvas_savings["total_images"] = total_images
+        compressed_canvas_savings["avg_images_per_sample"] = round(total_images / len(compressed_canvas_samples), 2)
+        
+        with open(os.path.join(args.out_dir, "compressed_canvas_compression_summary.json"), "w", encoding="utf-8") as handle:
+            json.dump(compressed_canvas_savings, handle, ensure_ascii=True, indent=2)
+    
+    # Build canvas compression (text-to-image) - regular mode
+    if use_canvas and args.mode != "compressed_canvas":
         print(f"Compressing {len(samples)} samples to canvas images...")
         print(f"  Target tokens per image: {args.canvas_tokens_per_image}")
         print(f"  Canvas size: {args.canvas_size}x{args.canvas_size}")
@@ -1243,6 +1357,36 @@ def main() -> None:
                 avg_compression = canvas_savings.get('avg_savings_percent', 0)
                 total_images = canvas_savings.get('total_images', 0)
                 print(f"  Avg compression: {avg_compression:.1f}%")
+                print(f"  Total images used: {total_images}")
+        
+        if compressed_canvas_samples:
+            print(f"Evaluating compressed canvas compression ({len(compressed_canvas_samples)} samples)...")
+            compressed_canvas_eval = evaluate_canvas_with_gemini(
+                compressed_canvas_samples,
+                client=gemini_client,
+                model=args.model,
+                temperature=args.temperature,
+                max_tokens=args.max_tokens,
+                max_retries=args.max_retries,
+                cot=args.cot,
+                price_in=args.price_in,
+                price_out=args.price_out,
+                price_unit=args.price_unit,
+            )
+            with open(
+                os.path.join(args.out_dir, f"compressed_canvas_eval_run{run_idx + 1}.json"),
+                "w",
+                encoding="utf-8",
+            ) as handle:
+                json.dump(compressed_canvas_eval, handle, ensure_ascii=True, indent=2)
+            print(f"  Compressed canvas accuracy: {compressed_canvas_eval['accuracy']:.2%}")
+            print(f"  Compressed canvas tokens: {compressed_canvas_eval['prompt_tokens_total']:,}")
+            if compressed_canvas_samples:
+                savings_vs_original = compressed_canvas_savings.get('savings_percent_vs_original', 0)
+                savings_vs_compressed = compressed_canvas_savings.get('savings_percent_vs_compressed', 0)
+                total_images = compressed_canvas_savings.get('total_images', 0)
+                print(f"  Savings vs original: {savings_vs_original:.1f}%")
+                print(f"  Savings vs compressed: {savings_vs_compressed:.1f}%")
                 print(f"  Total images used: {total_images}")
         
         if bear_prompts:
