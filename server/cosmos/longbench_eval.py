@@ -5,6 +5,7 @@ from typing import Callable, Dict, Iterable, List, Optional, Sequence
 
 from .chunker import count_tokens
 from .longbench_compressor import LongBenchEngine
+from .scoring import build_metrics
 
 TokenCounter = Callable[[str], int]
 
@@ -133,19 +134,25 @@ class LongBenchRunner:
         token_budget: Optional[int] = None,
         toggles: Optional[Dict] = None,
         seed: int = 13,
+        passes: int = 1,
     ) -> List[Dict]:
         results: List[Dict] = []
         for sample in samples:
-            result = self.engine.compress(
-                context=sample["context"],
-                question=sample["question"],
-                choices=sample["choices"],
-                token_budget=token_budget,
-                target_ratio=target_ratio,
-                seed=seed,
-                toggles=toggles,
-            )
-            results.append({**sample, "compressed_context": result["compressed_context"], "metrics": result["metrics"]})
+            original_context = sample["context"]
+            context = original_context
+            for _ in range(max(1, passes)):
+                result = self.engine.compress(
+                    context=context,
+                    question=sample["question"],
+                    choices=sample["choices"],
+                    token_budget=token_budget,
+                    target_ratio=target_ratio,
+                    seed=seed,
+                    toggles=toggles,
+                )
+                context = result["compressed_context"]
+            metrics = build_metrics(original_context, context)
+            results.append({**sample, "compressed_context": context, "metrics": metrics})
         return results
 
     def build_prompts(self, samples: Sequence[Dict]) -> List[Dict]:

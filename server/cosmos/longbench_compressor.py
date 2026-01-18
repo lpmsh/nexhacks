@@ -159,6 +159,59 @@ class LongBenchEngine:
         option_scores: Sequence[Sequence[float]],
         toggles: Dict,
     ) -> List[float]:
+        task_mode = str(toggles.get("task_mode", "task_aware")).lower()
+        has_query = bool(question_tokens) or bool(choice_tokens)
+        if task_mode == "task_aware" and not has_query:
+            task_mode = "task_agnostic"
+        if task_mode == "hybrid" and not has_query:
+            task_mode = "task_agnostic"
+
+        task_scores: Optional[List[float]] = None
+        agnostic_scores: Optional[List[float]] = None
+
+        if task_mode in ("task_aware", "hybrid"):
+            task_scores = self._compute_task_aware_scores(
+                spans=spans,
+                span_tokens=span_tokens,
+                question_tokens=question_tokens,
+                choice_tokens=choice_tokens,
+                query_scores=query_scores,
+                option_scores=option_scores,
+                toggles=toggles,
+            )
+
+        if task_mode in ("task_agnostic", "hybrid"):
+            agnostic_scores = self._compute_task_agnostic_scores(
+                spans=spans,
+                span_tokens=span_tokens,
+                toggles=toggles,
+            )
+
+        if task_mode == "task_aware":
+            return task_scores or [0.0 for _ in spans]
+        if task_mode == "task_agnostic":
+            return agnostic_scores or [0.0 for _ in spans]
+
+        blend = float(toggles.get("agnostic_weight", 0.35))
+        blend = max(0.0, min(1.0, blend))
+        if task_scores is None:
+            task_scores = [0.0 for _ in spans]
+        if agnostic_scores is None:
+            agnostic_scores = [0.0 for _ in spans]
+        return [
+            (1 - blend) * task_scores[i] + blend * agnostic_scores[i] for i in range(len(spans))
+        ]
+
+    def _compute_task_aware_scores(
+        self,
+        spans: Sequence[Span],
+        span_tokens: Sequence[Sequence[str]],
+        question_tokens: Sequence[str],
+        choice_tokens: Sequence[Sequence[str]],
+        query_scores: Sequence[float],
+        option_scores: Sequence[Sequence[float]],
+        toggles: Dict,
+    ) -> List[float]:
         question_weight = float(toggles.get("question_weight", 0.45))
         option_weight = float(toggles.get("option_weight", 1.0))
         contrast_weight = float(toggles.get("contrast_weight", 0.7))
@@ -196,6 +249,82 @@ class LongBenchEngine:
 
             importance.append(score)
         return importance
+
+    def _compute_task_agnostic_scores(
+        self,
+        spans: Sequence[Span],
+        span_tokens: Sequence[Sequence[str]],
+        toggles: Dict,
+    ) -> List[float]:
+        doc_sim_weight = float(toggles.get("agnostic_doc_sim_weight", 0.5))
+        idf_weight = float(toggles.get("agnostic_idf_weight", 0.3))
+        diversity_weight = float(toggles.get("agnostic_diversity_weight", 0.2))
+        min_base = float(toggles.get("agnostic_min_score", 0.05))
+        entity_boost = float(toggles.get("entity_boost", 0.2))
+        number_boost = float(toggles.get("number_boost", 0.2))
+        must_keep_boost = float(toggles.get("must_keep_boost", 0.35))
+
+        idf, max_idf, doc_tfidf, doc_norm = self._build_doc_stats(span_tokens)
+
+        importance: List[float] = []
+        for i, span in enumerate(spans):
+            tokens = span_tokens[i]
+            if not tokens:
+                base = min_base
+            else:
+                token_counts: Dict[str, int] = {}
+                for tok in tokens:
+                    token_counts[tok] = token_counts.get(tok, 0) + 1
+                span_tfidf: Dict[str, float] = {}
+                span_norm = 0.0
+                dot = 0.0
+                for tok, tf in token_counts.items():
+                    weight = tf * idf.get(tok, 0.0)
+                    span_tfidf[tok] = weight
+                    span_norm += weight * weight
+                    dot += weight * doc_tfidf.get(tok, 0.0)
+                span_norm = math.sqrt(span_norm)
+                doc_sim = dot / (span_norm * doc_norm) if span_norm > 0 else 0.0
+                unique_tokens = set(tokens)
+                idf_avg = sum(idf.get(tok, 0.0) for tok in unique_tokens) / max(len(unique_tokens), 1)
+                idf_norm = idf_avg / max_idf if max_idf > 0 else 0.0
+                diversity = len(unique_tokens) / max(len(tokens), 1)
+                base = doc_sim_weight * doc_sim + idf_weight * idf_norm + diversity_weight * diversity
+                base = max(base, min_base)
+
+            score = base * span.weight
+
+            if span.must_keep:
+                score *= 1 + must_keep_boost
+            if re.search(r"\d", span.text):
+                score *= 1 + number_boost
+            if re.search(r"\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b", span.text):
+                score *= 1 + entity_boost
+
+            importance.append(score)
+
+        return importance
+
+    def _build_doc_stats(
+        self, span_tokens: Sequence[Sequence[str]]
+    ) -> tuple[Dict[str, float], float, Dict[str, float], float]:
+        n_docs = len(span_tokens) or 1
+        df: Dict[str, int] = {}
+        doc_tf: Dict[str, int] = {}
+        for tokens in span_tokens:
+            seen = set()
+            for tok in tokens:
+                doc_tf[tok] = doc_tf.get(tok, 0) + 1
+                if tok not in seen:
+                    df[tok] = df.get(tok, 0) + 1
+                    seen.add(tok)
+        idf: Dict[str, float] = {}
+        for tok, freq in df.items():
+            idf[tok] = math.log(1 + (n_docs - freq + 0.5) / (freq + 0.5))
+        max_idf = max(idf.values()) if idf else 1.0
+        doc_tfidf = {tok: tf * idf.get(tok, 0.0) for tok, tf in doc_tf.items()}
+        doc_norm = math.sqrt(sum(weight * weight for weight in doc_tfidf.values())) if doc_tfidf else 1.0
+        return idf, max_idf, doc_tfidf, doc_norm
 
     def _build_windows(
         self, spans: Sequence[Span], window_token_budget: int

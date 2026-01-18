@@ -14,6 +14,7 @@ from cosmos.longbench_eval import (
     normalize_choice,
     write_jsonl,
 )
+from cosmos.longbench_variants import get_variant, list_variants
 from cosmos.token_client import TokenCoClient
 
 
@@ -128,7 +129,10 @@ def evaluate_with_model(
     prompt_tokens_total = 0
     completion_tokens_total = 0
     cost_total = 0.0
-    for item in prompts:
+    total_items = len(prompts)
+    for idx, item in enumerate(prompts, start=1):
+        if idx == 1 or idx % 5 == 0 or idx == total_items:
+            print(f"[eval] {idx}/{total_items} prompts...")
         start = time.perf_counter()
         response = call_openai_compatible(
             prompt=item["prompt"],
@@ -204,7 +208,10 @@ def compress_with_bear(
     min_output_tokens: Optional[int],
 ) -> List[Dict]:
     results: List[Dict] = []
-    for sample in samples:
+    total_items = len(samples)
+    for idx, sample in enumerate(samples, start=1):
+        if idx == 1 or idx % 5 == 0 or idx == total_items:
+            print(f"[bear] {idx}/{total_items} compressions...")
         start = time.perf_counter()
         payload = token_client.compress(
             sample["context"],
@@ -240,6 +247,7 @@ def main() -> None:
     parser.add_argument("--max-context-tokens", type=int, default=100000)
     parser.add_argument("--target-ratio", type=float, default=0.4)
     parser.add_argument("--token-budget", type=int, default=None)
+    parser.add_argument("--passes", type=int, default=1, help="Number of compression passes.")
     parser.add_argument("--mode", choices=["baseline", "compressed", "both"], default="both")
     parser.add_argument("--runs", type=int, default=1)
     parser.add_argument("--out-dir", default="out")
@@ -260,7 +268,35 @@ def main() -> None:
     parser.add_argument("--price-in", type=float, default=0.0)
     parser.add_argument("--price-out", type=float, default=0.0)
     parser.add_argument("--price-unit", type=int, default=1000000)
+    parser.add_argument("--variant", default=None, help="Predefined compressor variant name.")
+    parser.add_argument("--list-variants", action="store_true", help="List available variants and exit.")
+    parser.add_argument(
+        "--use-variant-ratio",
+        action="store_true",
+        help="Apply the variant's target ratio if provided.",
+    )
+    parser.add_argument(
+        "--task-mode",
+        choices=["task_aware", "task_agnostic", "hybrid"],
+        default=None,
+        help="Override compressor task mode.",
+    )
+    parser.add_argument("--agnostic-weight", type=float, default=None)
+    parser.add_argument("--agnostic-doc-sim-weight", type=float, default=None)
+    parser.add_argument("--agnostic-idf-weight", type=float, default=None)
+    parser.add_argument("--agnostic-diversity-weight", type=float, default=None)
+    parser.add_argument("--agnostic-min-score", type=float, default=None)
+    parser.add_argument(
+        "--toggle",
+        action="append",
+        default=None,
+        help="Override compressor toggle (key=value). Repeatable.",
+    )
     args = parser.parse_args()
+
+    if args.list_variants:
+        print(list_variants())
+        return
 
     os.makedirs(args.out_dir, exist_ok=True)
 
@@ -280,15 +316,60 @@ def main() -> None:
     compressed_samples = []
     bear_prompts = []
     bear_samples = []
+    toggles: Dict = {}
+    if args.variant:
+        variant = get_variant(args.variant)
+        toggles.update(variant.toggles)
+        if args.use_variant_ratio and variant.target_ratio is not None:
+            args.target_ratio = variant.target_ratio
+    if args.task_mode:
+        toggles["task_mode"] = args.task_mode
+    if args.agnostic_weight is not None:
+        toggles["agnostic_weight"] = args.agnostic_weight
+    if args.agnostic_doc_sim_weight is not None:
+        toggles["agnostic_doc_sim_weight"] = args.agnostic_doc_sim_weight
+    if args.agnostic_idf_weight is not None:
+        toggles["agnostic_idf_weight"] = args.agnostic_idf_weight
+    if args.agnostic_diversity_weight is not None:
+        toggles["agnostic_diversity_weight"] = args.agnostic_diversity_weight
+    if args.agnostic_min_score is not None:
+        toggles["agnostic_min_score"] = args.agnostic_min_score
+    if args.toggle:
+        for raw in args.toggle:
+            if "=" not in raw:
+                raise SystemExit(f"Invalid --toggle value: {raw} (expected key=value)")
+            key, value = raw.split("=", 1)
+            key = key.strip()
+            value = value.strip()
+            if not key:
+                raise SystemExit(f"Invalid --toggle value: {raw} (empty key)")
+            lowered = value.lower()
+            if lowered in ("true", "false"):
+                parsed: object = lowered == "true"
+            else:
+                try:
+                    parsed = int(value)
+                except ValueError:
+                    try:
+                        parsed = float(value)
+                    except ValueError:
+                        parsed = value
+            toggles[key] = parsed
+    if not toggles:
+        toggles = None
     if args.mode in ("baseline", "both"):
+        print("[prepare] building baseline prompts")
         baseline_prompts = runner.build_prompts(samples)
         write_jsonl(os.path.join(args.out_dir, "baseline_prompts.jsonl"), baseline_prompts)
     if args.mode in ("compressed", "both"):
+        print("[prepare] running longbench compressor")
         compressed_samples = runner.compress_samples(
             samples,
             target_ratio=args.target_ratio,
             token_budget=args.token_budget,
             seed=args.seed,
+            passes=args.passes,
+            toggles=toggles,
         )
         compressed_prompts = runner.build_compressed_prompts(compressed_samples)
         write_jsonl(os.path.join(args.out_dir, "compressed_prompts.jsonl"), compressed_prompts)
@@ -299,6 +380,7 @@ def main() -> None:
             json.dump(savings, handle, ensure_ascii=True, indent=2)
 
     if args.bear:
+        print("[prepare] running bear compression")
         token_client = TokenCoClient()
         if not token_client.available:
             raise SystemExit("TokenCo client unavailable. Check TOKENC_API_KEY and tokenc installation.")
@@ -324,6 +406,7 @@ def main() -> None:
 
     for run_idx in range(args.runs):
         if baseline_prompts:
+            print(f"[eval] baseline run {run_idx + 1}/{args.runs}")
             baseline_eval = evaluate_with_model(
                 baseline_prompts,
                 base_url=args.base_url,
@@ -346,6 +429,7 @@ def main() -> None:
             ) as handle:
                 json.dump(baseline_eval, handle, ensure_ascii=True, indent=2)
         if compressed_prompts:
+            print(f"[eval] compressed run {run_idx + 1}/{args.runs}")
             compressed_eval = evaluate_with_model(
                 compressed_prompts,
                 base_url=args.base_url,
@@ -368,6 +452,7 @@ def main() -> None:
             ) as handle:
                 json.dump(compressed_eval, handle, ensure_ascii=True, indent=2)
         if bear_prompts:
+            print(f"[eval] bear run {run_idx + 1}/{args.runs}")
             bear_eval = evaluate_with_model(
                 bear_prompts,
                 base_url=args.base_url,
